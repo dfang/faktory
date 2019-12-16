@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -58,10 +59,22 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		return nil, fmt.Errorf("empty storage directory")
 	}
 
+	cr := opts.GlobalConfig["cron"]
+	jsonbody, err := json.Marshal(cr)
+	if err != nil {
+		panic(err)
+	}
+	var crons []client.Cron
+	if err := json.Unmarshal(jsonbody, &crons); err != nil {
+		panic(err)
+	}
+	// fmt.Printf("%#v\n", crons)
+
 	s := &Server{
 		Options:    opts,
 		Stats:      &RuntimeStats{StartedAt: time.Now()},
 		Subsystems: []Subsystem{},
+		Crons:      crons,
 
 		stopper: make(chan bool),
 		closed:  false,
@@ -366,16 +379,12 @@ func (s *Server) startCron() error {
 	if cmd.Err() != nil {
 		panic(cmd.Err())
 	}
-	fmt.Println("Clear cron jobs")
-
-	contents := readConfigFiles()
-	conf := parseToml(contents)
-	// fmt.Println(conf)
+	util.Debug("Clear cron jobs")
+	// contents := readConfigFiles()
+	// conf := parseToml(contents)
 	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 	c := cron.New(cron.WithParser(parser))
 	c.Start()
-
-	s.Crons = conf.Cron
 
 	for _, item := range s.Crons {
 		// validate schedule syntax
@@ -385,7 +394,7 @@ func (s *Server) startCron() error {
 		}
 
 		// fmt.Printf("\n%+v\n", item.Schedule)
-		fmt.Printf("%+v\n", item)
+		// fmt.Printf("%+v\n", item)
 
 		err = s.store.Redis().ZAdd("cron", redis.Z{
 			Score:  0,
@@ -396,8 +405,7 @@ func (s *Server) startCron() error {
 		}
 
 		next := sch.Next(time.Now()).Format(time.RFC3339Nano)
-		fmt.Printf("job %s next run is %s\n", item.Job.Type, next)
-
+		// fmt.Printf("job %s next run is %s\n", item.Job.Type, next)
 		job := buildJobFromCron(item, next)
 		err = s.manager.Push(job)
 		if err != nil {
@@ -405,15 +413,15 @@ func (s *Server) startCron() error {
 			panic("push job to faktory failed")
 		}
 
-		c.AddFunc(item.Schedule, Process(item, s.manager))
+		c.AddFunc(item.Schedule, pushJobFunc(item, s.manager))
 	}
 
-	fmt.Println()
-	fmt.Println("starting cron jobs .....")
+	util.Debug("Starting cron jobs .....")
+
 	return nil
 }
 
-func Process(item client.Cron, m manager.Manager) func() {
+func pushJobFunc(item client.Cron, m manager.Manager) func() {
 	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 	return func() {
 		sch, err := parser.Parse(item.Schedule)
@@ -434,6 +442,7 @@ func Process(item client.Cron, m manager.Manager) func() {
 
 func buildJobFromCron(item client.Cron, next string) *client.Job {
 	job := client.NewJob(item.Job.Type, nil)
+	job.Type = item.Job.Type
 	job.Queue = "default"
 	if item.Job.Queue != "" {
 		job.Queue = item.Job.Queue
