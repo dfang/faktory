@@ -26,6 +26,7 @@ var (
 		{"Queues", "/queues"},
 		{"Retries", "/retries"},
 		{"Scheduled", "/scheduled"},
+		{"Cron", "/cron"},
 		{"Dead", "/morgue"},
 	}
 
@@ -106,6 +107,10 @@ func newWeb(s *server.Server, opts Options) *WebUI {
 	app.HandleFunc("/retries/", Log(ui, retryHandler))
 	app.HandleFunc("/scheduled", Log(ui, scheduledHandler))
 	app.HandleFunc("/scheduled/", Log(ui, scheduledJobHandler))
+
+	app.HandleFunc("/cron", Log(ui, cronHandler))
+	app.HandleFunc("/cron/", Log(ui, cronJobHandler))
+
 	app.HandleFunc("/morgue", Log(ui, morgueHandler))
 	app.HandleFunc("/morgue/", Log(ui, deadHandler))
 	app.HandleFunc("/busy", Log(ui, busyHandler))

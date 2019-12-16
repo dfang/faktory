@@ -23,6 +23,7 @@ func (rs *redisStore) initSorted() {
 	rs.retries = &redisSorted{name: "retries", store: rs}
 	rs.dead = &redisSorted{name: "dead", store: rs}
 	rs.working = &redisSorted{name: "working", store: rs}
+	rs.cron = &redisSorted{name: "cron", store: rs}
 }
 
 func (rs *redisSorted) Name() string {
@@ -115,8 +116,9 @@ type setEntry struct {
 	value []byte
 	score float64
 	// these two are lazy-loaded
-	job *client.Job
-	key []byte
+	job  *client.Job
+	cron *client.Cron
+	key  []byte
 }
 
 func NewEntry(score float64, value []byte) *setEntry {
@@ -160,6 +162,21 @@ func (e *setEntry) Job() (*client.Job, error) {
 
 	e.job = &job
 	return e.job, nil
+}
+
+func (e *setEntry) Cron() (*client.Cron, error) {
+	if e.cron != nil {
+		return e.cron, nil
+	}
+
+	var cron client.Cron
+	err := json.Unmarshal(e.value, &cron)
+	if err != nil {
+		return nil, err
+	}
+
+	e.cron = &cron
+	return e.cron, nil
 }
 
 func (rs *redisSorted) Find(match string, fn func(index int, e SortedEntry) error) error {

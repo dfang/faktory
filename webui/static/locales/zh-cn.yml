@@ -10,6 +10,7 @@ zh-cn: # <---- change this to your locale code
   Processed: 已处理
   Failed: 已失败
   Scheduled: 已计划
+  Cron: 定时任务
   Retries: 重试
   Enqueued: 已进入队列
   Worker: 工人

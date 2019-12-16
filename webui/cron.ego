@@ -1,0 +1,55 @@
+<%
+package webui
+
+import (
+  "net/http"
+
+  "github.com/contribsys/faktory/client"
+  "github.com/contribsys/faktory/storage"
+)
+
+func ego_listCron(w io.Writer, req *http.Request, set storage.SortedSet, count, currentPage uint64) {
+  totalSize := uint64(set.Size())
+%>
+
+<% ego_layout(w, req, func() { %>
+
+<header class="row">
+  <div class="col-sm-5">
+    <h3><%= t(req, "Cron Jobs") %></h3>
+  </div>
+</header>
+
+<% if totalSize > 0 { %>
+    <%== csrfTag(req) %>
+    <div class="table_container">
+      <table class="table table-striped table-bordered table-white">
+        <thead>
+          <tr>
+            <th><%= t(req, "When") %></th>
+            <th><%= t(req, "Queue") %></th>
+            <th><%= t(req, "Job") %></th>
+            <th><%= t(req, "Arguments") %></th>
+          </tr>
+        </thead>
+        <% cronJobs(set, count, currentPage, func(idx int, cron *client.Cron) { %>
+          <tr>
+            <td>
+               <code><%= cron.Schedule %></code>
+            </td>
+            <td>
+              <a href="/queues/<%= cron.Job.Queue %>"><%= cron.Job.Queue %></a>
+            </td>
+            <td><code><%= cron.Job.Type %></code></td>
+            <td>
+               <div class="args"><%= displayArgs(cron.Job.Args) %></div>
+            </td>
+          </tr>
+        <% }) %>
+      </table>
+    </div>
+<% } else { %>
+  <div class="alert alert-success"><%= t(req, "NoCronFound") %></div>
+<% } %>
+<% }) %>
+<% } %>

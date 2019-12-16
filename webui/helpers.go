@@ -131,6 +131,18 @@ func queueJobs(q storage.Queue, count, currentPage uint64, fn func(idx int, key 
 	}
 }
 
+// func crons(req *http.Request) []Queue {
+// 	crons := make([]Cron, 0)
+// 	ctx(req).Store().EachQueue(func(q storage.Queue) {
+// 		queues = append(queues, Queue{q.Name(), q.Size()})
+// 	})
+
+// 	sort.Slice(queues, func(i, j int) bool {
+// 		return queues[i].Name < queues[j].Name
+// 	})
+// 	return queues
+// }
+
 func enqueuedSize(req *http.Request) uint64 {
 	var total uint64
 	ctx(req).Store().EachQueue(func(q storage.Queue) {
@@ -167,6 +179,25 @@ func setJobs(set storage.SortedSet, count, currentPage uint64, fn func(idx int, 
 			return err
 		}
 		fn(idx, key, job)
+		return nil
+	})
+	if err != nil {
+		util.Error("Error iterating sorted set", err)
+	}
+}
+
+func cronJobs(set storage.SortedSet, count, currentPage uint64, fn func(idx int, worker *client.Cron)) {
+	_, err := set.Page(int((currentPage-1)*count), int(count), func(idx int, entry storage.SortedEntry) error {
+
+		cron, err := entry.Cron()
+		if err != nil {
+			util.Warnf("Error parsing JSON: %s", string(entry.Value()))
+			return err
+		}
+
+		fmt.Println(cron)
+
+		fn(idx, cron)
 		return nil
 	})
 	if err != nil {

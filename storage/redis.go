@@ -29,6 +29,7 @@ type redisStore struct {
 	retries   *redisSorted
 	dead      *redisSorted
 	working   *redisSorted
+	cron      *redisSorted
 
 	rclient *redis.Client
 	DB      int
@@ -304,6 +305,10 @@ func (store *redisStore) Retries() SortedSet {
 
 func (store *redisStore) Scheduled() SortedSet {
 	return store.scheduled
+}
+
+func (store *redisStore) Cron() SortedSet {
+	return store.cron
 }
 
 func (store *redisStore) Working() SortedSet {

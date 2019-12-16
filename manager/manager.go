@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/robfig/cron/v3"
+
 	"github.com/contribsys/faktory/client"
 	"github.com/contribsys/faktory/storage"
 	"github.com/contribsys/faktory/util"
@@ -95,6 +97,9 @@ type Manager interface {
 	// EnqueueScheduledJobs enqueues scheduled jobs
 	EnqueueScheduledJobs(when time.Time) (int64, error)
 
+	// // EnqueueCronJobs enqueues cron jobs
+	// EnqueueCronJobs(when time.Time) (int64, error)
+
 	// RetryJobs enqueues failed jobs
 	RetryJobs(when time.Time) (int64, error)
 
@@ -160,6 +165,7 @@ type Lease interface {
 
 type manager struct {
 	store storage.Store
+	cron  cron.Cron
 
 	// Hold the working set in memory so we don't need to burn CPU
 	// when doing 1000s of jobs/sec.
