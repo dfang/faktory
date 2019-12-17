@@ -236,6 +236,57 @@ func scheduledJobHandler(w http.ResponseWriter, r *http.Request) {
 	ego_scheduled_job(w, r, key, job)
 }
 
+func cronHandler(w http.ResponseWriter, r *http.Request) {
+	set := ctx(r).Store().Cron()
+
+	currentPage := uint64(1)
+	p := r.URL.Query()["page"]
+	if p != nil {
+		val, err := strconv.Atoi(p[0])
+		if err != nil {
+			http.Error(w, "Invalid parameter", http.StatusBadRequest)
+			return
+		}
+		currentPage = uint64(val)
+	}
+	count := uint64(25)
+
+	ego_listCron(w, r, set, count, currentPage)
+}
+
+func cronJobHandler(w http.ResponseWriter, r *http.Request) {
+	name := LAST_ELEMENT.FindStringSubmatch(r.RequestURI)
+	if name == nil {
+		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+	key, err := url.QueryUnescape(name[1])
+	if err != nil {
+		http.Error(w, "Invalid URL input", http.StatusBadRequest)
+		return
+	}
+
+	data, err := ctx(r).Store().Scheduled().Get([]byte(key))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if data == nil {
+		// retry has disappeared?  possibly requeued while the user was sitting on the /retries page
+		Redirect(w, r, "/scheduled", http.StatusTemporaryRedirect)
+		return
+	}
+
+	job, err := data.Job()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	ego_scheduled_job(w, r, key, job)
+}
+
 func morgueHandler(w http.ResponseWriter, r *http.Request) {
 	set := ctx(r).Store().Dead()
 

@@ -27,7 +27,7 @@ type Job struct {
 	// required
 	Jid   string        `json:"jid"`
 	Queue string        `json:"queue"`
-	Type  string        `json:"jobtype"`
+	Type  string        `json:"jobtype" toml:"type"`
 	Args  []interface{} `json:"args"`
 
 	// optional

@@ -2,10 +2,14 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -20,6 +24,9 @@ import (
 	"github.com/contribsys/faktory/storage"
 	"github.com/contribsys/faktory/util"
 	"github.com/go-redis/redis"
+
+	"github.com/BurntSushi/toml"
+	"github.com/robfig/cron/v3"
 )
 
 type RuntimeStats struct {
@@ -32,6 +39,7 @@ type Server struct {
 	Options    *ServerOptions
 	Stats      *RuntimeStats
 	Subsystems []Subsystem
+	Crons      []client.Cron
 
 	listener   net.Listener
 	store      storage.Store
@@ -51,10 +59,22 @@ func NewServer(opts *ServerOptions) (*Server, error) {
 		return nil, fmt.Errorf("empty storage directory")
 	}
 
+	cr := opts.GlobalConfig["cron"]
+	jsonbody, err := json.Marshal(cr)
+	if err != nil {
+		panic(err)
+	}
+	var crons []client.Cron
+	if err := json.Unmarshal(jsonbody, &crons); err != nil {
+		panic(err)
+	}
+	// fmt.Printf("%#v\n", crons)
+
 	s := &Server{
 		Options:    opts,
 		Stats:      &RuntimeStats{StartedAt: time.Now()},
 		Subsystems: []Subsystem{},
+		Crons:      crons,
 
 		stopper: make(chan bool),
 		closed:  false,
@@ -116,6 +136,8 @@ func (s *Server) Run() error {
 	if s.store == nil {
 		panic("Server hasn't been booted")
 	}
+
+	s.startCron()
 
 	for _, x := range s.Subsystems {
 		err := x.Start(s)
@@ -350,4 +372,121 @@ func (s *Server) CurrentState() (map[string]interface{}, error) {
 			"used_memory_mb":  util.MemoryUsage(),
 		},
 	}, nil
+}
+
+func (s *Server) startCron() error {
+	cmd := s.store.Redis().Del("cron")
+	if cmd.Err() != nil {
+		panic(cmd.Err())
+	}
+	util.Debug("Clear cron jobs")
+	// contents := readConfigFiles()
+	// conf := parseToml(contents)
+	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	c := cron.New(cron.WithParser(parser))
+	c.Start()
+
+	for _, item := range s.Crons {
+		// validate schedule syntax
+		sch, err := parser.Parse(item.Schedule)
+		if err != nil {
+			panic(err)
+		}
+
+		// fmt.Printf("\n%+v\n", item.Schedule)
+		// fmt.Printf("%+v\n", item)
+
+		err = s.store.Redis().ZAdd("cron", redis.Z{
+			Score:  0,
+			Member: &item,
+		}).Err()
+		if err != nil {
+			panic(err)
+		}
+
+		next := sch.Next(time.Now()).Format(time.RFC3339Nano)
+		// fmt.Printf("job %s next run is %s\n", item.Job.Type, next)
+		job := buildJobFromCron(item, next)
+		err = s.manager.Push(job)
+		if err != nil {
+			log.Println(err)
+			panic("push job to faktory failed")
+		}
+
+		c.AddFunc(item.Schedule, pushJobFunc(item, s.manager))
+	}
+
+	util.Debug("Starting cron jobs .....")
+
+	return nil
+}
+
+func pushJobFunc(item client.Cron, m manager.Manager) func() {
+	parser := cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+	return func() {
+		sch, err := parser.Parse(item.Schedule)
+		if err != nil {
+			panic(err)
+		}
+		// job := client.NewJob(item.Job.Type, item.Job.Args...)
+		job := buildJobFromCron(item, sch.Next(time.Now()).Format(time.RFC3339Nano))
+		fmt.Println(job)
+		// err = s.manager.Push(job)
+		err = m.Push(job)
+		if err != nil {
+			log.Println(err)
+			panic("push job to faktory failed")
+		}
+	}
+}
+
+func buildJobFromCron(item client.Cron, next string) *client.Job {
+	job := client.NewJob(item.Job.Type, nil)
+	job.Type = item.Job.Type
+	job.Queue = "default"
+	if item.Job.Queue != "" {
+		job.Queue = item.Job.Queue
+	}
+	job.At = next
+	if item.Job.Retry != 0 {
+		job.Retry = item.Job.Retry
+	}
+	return job
+}
+
+func readConfigFiles() []byte {
+	var contents []byte
+	d := fmt.Sprintf("%s/.faktory/conf.d/", os.Getenv("HOME"))
+	files, err := ioutil.ReadDir(d)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, f := range files {
+		content, err := ioutil.ReadFile(d + f.Name())
+		if err != nil {
+			log.Fatal(err)
+		}
+		var buf bytes.Buffer
+		buf.WriteString("\n")
+		content = append(content, buf.Bytes()...)
+		contents = append(contents, content...)
+	}
+	return contents
+}
+
+type crons struct {
+	Cron []client.Cron
+}
+
+func parseToml(contents []byte) crons {
+	var crons crons
+	// fmt.Println("contents is ........")
+	// fmt.Println(string(contents))
+
+	// err := toml.Unmarshal(contents, &crons)
+	_, err := toml.Decode(string(contents), &crons)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return crons
 }

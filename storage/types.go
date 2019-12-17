@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/contribsys/faktory/client"
+	// "github.com/contribsys/faktory/manager"
 	"github.com/go-redis/redis"
 )
 
@@ -20,6 +21,7 @@ type Store interface {
 	Close() error
 	Retries() SortedSet
 	Scheduled() SortedSet
+	Cron() SortedSet
 	Working() SortedSet
 	Dead() SortedSet
 	GetQueue(string) (Queue, error)
@@ -67,6 +69,7 @@ type SortedEntry interface {
 	Value() []byte
 	Key() ([]byte, error)
 	Job() (*client.Job, error)
+	Cron() (*client.Cron, error)
 }
 
 type SortedSet interface {

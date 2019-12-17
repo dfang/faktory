@@ -47,6 +47,7 @@ en: # <---- change this to your locale code
   ErrorBacktrace: Error Backtrace
   GoBack: ← Back
   NoScheduledFound: No scheduled jobs were found
+  NoCronFound: No Cron jobs were found
   When: When
   ScheduledJobs: Scheduled Jobs
   idle: idle
