@@ -19,7 +19,7 @@ func ego_listDead(w io.Writer, req *http.Request, set storage.SortedSet, count, 
     <h3><%= t(req, "DeadJobs") %></h3>
   </div>
   <% if totalSize > count { %>
-    <div class="col-sm-4">
+    <div class="col-sm-7">
       <% ego_paging(w, req, "/morgue", totalSize, count, currentPage) %>
     </div>
   <% } %>

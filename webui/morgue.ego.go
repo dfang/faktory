@@ -33,7 +33,7 @@ func ego_listDead(w io.Writer, req *http.Request, set storage.SortedSet, count, 
 //line morgue.ego:21
 		if totalSize > count {
 //line morgue.ego:22
-			_, _ = io.WriteString(w, "\n    <div class=\"col-sm-4\">\n      ")
+			_, _ = io.WriteString(w, "\n    <div class=\"col-sm-7\">\n      ")
 //line morgue.ego:23
 			ego_paging(w, req, "/morgue", totalSize, count, currentPage)
 //line morgue.ego:24

@@ -33,7 +33,7 @@ func ego_listRetries(w io.Writer, req *http.Request, set storage.SortedSet, coun
 //line retries.ego:22
 		if totalSize > count {
 //line retries.ego:23
-			_, _ = io.WriteString(w, "\n    <div class=\"col-sm-4\">\n      ")
+			_, _ = io.WriteString(w, "\n    <div class=\"col-sm-7\">\n      ")
 //line retries.ego:24
 			ego_paging(w, req, "/retries", totalSize, count, currentPage)
 //line retries.ego:25

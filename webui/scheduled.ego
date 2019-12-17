@@ -19,7 +19,7 @@ func ego_listScheduled(w io.Writer, req *http.Request, set storage.SortedSet, co
     <h3><%= t(req, "ScheduledJobs") %></h3>
   </div>
   <% if totalSize > 0 && totalSize > count { %>
-    <div class="col-sm-4">
+    <div class="col-sm-7">
       <% ego_paging(w, req, "/scheduled", totalSize, count, currentPage) %>
     </div>
   <% } %>

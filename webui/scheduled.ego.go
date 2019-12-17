@@ -33,7 +33,7 @@ func ego_listScheduled(w io.Writer, req *http.Request, set storage.SortedSet, co
 //line scheduled.ego:21
 		if totalSize > 0 && totalSize > count {
 //line scheduled.ego:22
-			_, _ = io.WriteString(w, "\n    <div class=\"col-sm-4\">\n      ")
+			_, _ = io.WriteString(w, "\n    <div class=\"col-sm-7\">\n      ")
 //line scheduled.ego:23
 			ego_paging(w, req, "/scheduled", totalSize, count, currentPage)
 //line scheduled.ego:24
